@@ -2,7 +2,7 @@
 name = "youtubesummaries"
 version = "0.1.0"
 description = "YouTube Transcript Summarizer CLI Tool"
-authors = ["Manuel Martin <manuel.martin@getvisibility.com>"]
+authors = ["Manuel Martin"]
 readme = "README.md"
 packages = [{include = "youtubesummaries"}]
 
