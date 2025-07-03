@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "youtubesummaries"
+version = "0.1.0"
+description = "YouTube Transcript Summarizer CLI Tool"
+authors = ["Manuel Martin <manuel.martin@getvisibility.com>"]
+readme = "README.md"
+packages = [{include = "youtubesummaries"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+yt-dlp = "^2025.6.9"
+openai = "^1.0.0"
+fastmcp = "^2.0.0"
+
+[tool.poetry.scripts]
+youtube-summarizer = "youtubesummaries.cli:main"
+youtube-summarizer-mcp = "youtubesummaries.mcp_server:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
