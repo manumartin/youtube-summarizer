@@ -11,7 +11,7 @@ import logging
 from typing import Optional, List
 from enum import Enum
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class LLMProvider(str, Enum):
@@ -22,67 +22,23 @@ class LLMProvider(str, Enum):
     OLLAMA = "ollama"
 
 
-class LLMConfig(BaseModel):
-    """Configuration for LLM providers."""
+class Config(BaseModel):
+    """Complete application configuration."""
 
+    provider: LLMProvider = LLMProvider.OPENAI
     model: str = "gpt-4.1"
     max_tokens: int = 1500
     temperature: float = 0.7
     title_max_tokens: int = 50
     title_temperature: float = 0.3
     base_url: Optional[str] = None
-
-
-class ProvidersConfig(BaseModel):
-    """Provider-specific configurations."""
-
-    openai: LLMConfig = Field(default_factory=LLMConfig)
-    anthropic: LLMConfig = Field(default_factory=lambda: LLMConfig(model="claude-3-haiku"))
-    ollama: LLMConfig = Field(default_factory=lambda: LLMConfig(model="llama3.2:3b", base_url="http://localhost:11434"))
-
-
-class ApiKeysConfig(BaseModel):
-    """API keys configuration."""
-
-    openai: Optional[str] = None
-    anthropic: Optional[str] = None
-
-
-class AppConfig(BaseModel):
-    """General application configuration."""
-
     default_output_dir: str = "summaries"
     skip_existing: bool = True
 
-
-class Config(BaseModel):
-    """Complete application configuration."""
-
-    provider: LLMProvider = LLMProvider.OPENAI
-    api_keys: ApiKeysConfig = Field(default_factory=ApiKeysConfig)
-    providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
-    app: AppConfig = Field(default_factory=AppConfig)
-
     @property
-    def current_llm_config(self) -> LLMConfig:
-        """Get the current LLM configuration based on selected provider."""
-        return getattr(self.providers, self.provider.value)
-
-    @property
-    def api_key(self) -> Optional[str]:
-        """Get API key for current provider from config or environment."""
-        # First check environment variables
-        if self.provider == LLMProvider.OPENAI:
-            env_key = os.getenv("OPENAI_API_KEY")
-            if env_key:
-                return env_key
-        elif self.provider == LLMProvider.ANTHROPIC:
-            env_key = os.getenv("ANTHROPIC_API_KEY")
-            if env_key:
-                return env_key
-
-        # Then check config file
-        return getattr(self.api_keys, self.provider.value)
+    def effective_base_url(self) -> Optional[str]:
+        """Get base URL for current provider."""
+        return self.base_url
 
 
 def get_xdg_config_home() -> Path:
@@ -131,40 +87,23 @@ def create_default_config_file() -> Path:
     # Write the default config with comments
     config_content = """# YouTube Transcript Summarizer Configuration
 
-# LLM Provider - defaults to OpenAI
+# LLM Provider - can be openai, anthropic, or ollama
 provider: openai
 
-# API Keys (recommended to use environment variables for security)
-api_keys:
-  openai: null  # Set via OPENAI_API_KEY environment variable
-  anthropic: null  # Set via ANTHROPIC_API_KEY environment variable
+# LLM Configuration (applies to all providers)
+model: gpt-4.1 # Model supported by the provider
+max_tokens: 1500
+temperature: 0.7
+title_max_tokens: 50
+title_temperature: 0.3
 
-# Provider configurations
-providers:
-  openai:
-    model: gpt-4.1
-    max_tokens: 1500
-    temperature: 0.7
-    title_max_tokens: 50
-    title_temperature: 0.3
-  anthropic:
-    model: claude-3-haiku
-    max_tokens: 1500
-    temperature: 0.7
-    title_max_tokens: 50
-    title_temperature: 0.3
-  ollama:
-    model: llama3.2:3b
-    base_url: http://localhost:11434
-    max_tokens: 1500
-    temperature: 0.7
-    title_max_tokens: 50
-    title_temperature: 0.3
+# Base URL for LLM API (used by providers that support it, e.g. Ollama)
+# base_url: http://localhost:11434  # Local Ollama endpoint
 
 # Application settings
-app:
-  default_output_dir: summaries
-  skip_existing: true
+default_output_dir: summaries
+skip_existing: true
+
 """
 
     with open(config_path, "w", encoding="utf-8") as f:
