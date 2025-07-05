@@ -9,7 +9,9 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 
-from openai import OpenAI
+from litellm import completion
+
+from .config import Config
 
 
 class YouTubeSummarizerError(Exception):
@@ -44,12 +46,6 @@ def load_urls_from_file(file_path: str) -> List[str]:
         with open(file_path, "r", encoding="utf-8") as file:
             urls = [line.strip() for line in file if line.strip()]
         return urls
-    except FileNotFoundError:
-        raise YouTubeSummarizerError(f"File not found: {file_path}")
-    except PermissionError:
-        raise YouTubeSummarizerError(f"Permission denied accessing file: {file_path}")
-    except UnicodeDecodeError:
-        raise YouTubeSummarizerError(f"File encoding error: {file_path}")
     except Exception as e:
         raise YouTubeSummarizerError(f"Error reading file {file_path}: {str(e)}")
 
@@ -194,8 +190,8 @@ def _clean_vtt_line(line: str) -> str:
     return line.strip()
 
 
-def summarize_with_openai(transcript: str, client: OpenAI) -> str:
-    """Generate summary using OpenAI."""
+def summarize_with_llm(transcript: str, config: Config) -> str:
+    """Generate summary using configured LLM."""
     try:
         prompt = f"""Please provide a concise summary of the following YouTube video transcript in markdown format. 
 Focus on the main points and key takeaways. Use proper markdown formatting including:
@@ -206,30 +202,42 @@ Focus on the main points and key takeaways. Use proper markdown formatting inclu
 
 {transcript}"""
 
-        response = client.chat.completions.create(
-            model="gpt-4.1",  # Using GPT-4.1 with 1M token context window
-            messages=[
+        # Prepare litellm parameters
+        model_name = f"{config.provider.value}/{config.current_llm_config.model}"
+
+        # Set up litellm configuration
+        kwargs = {
+            "model": model_name,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are a helpful assistant that creates concise summaries of video transcripts in markdown format. Always use proper markdown syntax including headers, bullet points, and bold text for emphasis.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=1500,  # Increased from 500 to allow for comprehensive markdown summaries
-            temperature=0.7,
-        )
+            "max_tokens": config.current_llm_config.max_tokens,
+            "temperature": config.current_llm_config.temperature,
+        }
+
+        # Add provider-specific parameters
+        if config.api_key:
+            kwargs["api_key"] = config.api_key
+        if config.current_llm_config.base_url:
+            kwargs["base_url"] = config.current_llm_config.base_url
+
+        response = completion(**kwargs)
 
         summary = response.choices[0].message.content
         if not summary:
-            raise YouTubeSummarizerError("Failed to generate summary: OpenAI returned empty response")
+            raise YouTubeSummarizerError("Failed to generate summary: LLM returned empty response")
 
         return summary
     except Exception as e:
         raise YouTubeSummarizerError(f"Failed to generate summary: {str(e)}")
 
 
-def generate_title_from_summary(summary: str, client: OpenAI) -> str:
-    """Generate a meaningful filename from the summary using OpenAI."""
+def generate_title_from_summary(summary: str, config: Config) -> str:
+    """Generate a meaningful filename from the summary using configured LLM."""
     try:
         prompt = f"""Based on this video summary, create a short, descriptive filename of 5-6 words maximum using only letters, numbers, and underscores. 
 The filename should capture the main topic or key concept. Use underscores to separate words.
@@ -238,18 +246,29 @@ Summary: {summary}
 
 Return only the filename without any explanation."""
 
-        response = client.chat.completions.create(
-            model="gpt-4.1",
-            messages=[
+        # Prepare litellm parameters
+        model_name = f"{config.provider.value}/{config.current_llm_config.model}"
+
+        kwargs = {
+            "model": model_name,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are a helpful assistant that creates concise, descriptive filenames from text summaries. Always use underscores instead of spaces and keep it to 5-6 words maximum.",
                 },
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=50,
-            temperature=0.3,  # Lower temperature for more consistent naming
-        )
+            "max_tokens": config.current_llm_config.title_max_tokens,
+            "temperature": config.current_llm_config.title_temperature,
+        }
+
+        # Add provider-specific parameters
+        if config.api_key:
+            kwargs["api_key"] = config.api_key
+        if config.current_llm_config.base_url:
+            kwargs["base_url"] = config.current_llm_config.base_url
+
+        response = completion(**kwargs)
 
         title = response.choices[0].message.content.strip() if response.choices[0].message.content else ""
 
@@ -268,14 +287,14 @@ Return only the filename without any explanation."""
         raise YouTubeSummarizerError(f"Failed to generate title: {str(e)}")
 
 
-def save_summary(video_id: str, summary: str, output_dir: str, client: OpenAI) -> str:
+def save_summary(video_id: str, summary: str, output_dir: str, config: Config) -> str:
     """Save summary to a markdown file with a meaningful name. Returns the file path."""
     try:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         # Try to generate a meaningful title
         try:
-            title = generate_title_from_summary(summary, client)
+            title = generate_title_from_summary(summary, config)
             filename = f"{title}.{video_id}.md"
         except YouTubeSummarizerError:
             # Fallback to video ID if title generation fails
