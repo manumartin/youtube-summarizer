@@ -1,16 +1,19 @@
 [tool.poetry]
 name = "youtubesummaries"
-version = "0.1.0"
+version = "0.2.0"  # Updated from 0.1.0
 description = "YouTube Transcript Summarizer CLI Tool"
 authors = ["Manuel Martin"]
 readme = "README.md"
 packages = [{include = "youtubesummaries"}]
 
 [tool.poetry.dependencies]
-python = "^3.12"
-yt-dlp = "^2025.6.9"
-openai = "^1.0.0"
-fastmcp = "^2.0.0"
+python = "^3.12"  # Base Python version requirement
+yt-dlp = "^2025.6.9"  # Library for downloading YouTube videos and metadata
+openai = "^1.0.0"  # OpenAI API client for text generation and summarization
+fastmcp = "^2.0.0"  # FastMCP framework for building MCP-compatible services
+litellm = "^1.0.0"  # Library for unified interface to LLM providers
+pyyaml = "^6.0"  # YAML file parsing and writing
+pydantic = "^2.0.0"  # Data validation using Python type annotations
 
 [tool.poetry.scripts]
 youtube-summarizer = "youtubesummaries.cli:main"

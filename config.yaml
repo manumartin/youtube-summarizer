@@ -1,0 +1,22 @@
+# YouTube Transcript Summarizer Configuration
+
+# LLM Provider - defaults to OpenAI
+provider: openai
+
+# API Keys (recommended to use environment variables for security)
+api_keys:
+  openai: null  # Set via OPENAI_API_KEY environment variable
+
+# Provider configurations
+providers:
+  openai:
+    model: gpt-4.1
+    max_tokens: 1500
+    temperature: 0.7
+    title_max_tokens: 50
+    title_temperature: 0.3
+
+# Application settings
+app:
+  default_output_dir: summaries
+  skip_existing: true 

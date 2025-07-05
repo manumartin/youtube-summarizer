@@ -4,18 +4,16 @@ Command-line interface for YouTube transcript summarizer.
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import List
 
-from openai import OpenAI
-
+from .config import Config, load_config
 from .core import (
     get_video_id,
     load_urls_from_stdin,
     download_transcript,
-    summarize_with_openai,
+    summarize_with_llm,
     save_summary,
     YouTubeSummarizerError,
 )
@@ -37,14 +35,14 @@ Examples:
   %(prog)s https://www.youtube.com/watch?v=dQw4w9WgXcQ
   cat urls.txt | %(prog)s
   %(prog)s --output-dir summaries https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+Note: Configuration is read from config.yaml in the current directory
         """,
     )
 
     parser.add_argument("url", nargs="?", help="Single YouTube URL to process (or pipe URLs via stdin)")
 
-    parser.add_argument(
-        "--output-dir", "-o", default=".", help="Directory to save summaries (default: current directory)"
-    )
+    parser.add_argument("--output-dir", "-o", help="Directory to save summaries (overrides config file setting)")
 
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
 
@@ -70,7 +68,7 @@ def get_urls_from_input(args: argparse.Namespace) -> List[str]:
         return load_urls_from_stdin()
 
 
-def process_single_url(url: str, client: OpenAI, output_dir: str) -> bool:
+def process_single_url(url: str, config: Config, output_dir: str) -> bool:
     """Process a single YouTube URL and return success status."""
     logger = logging.getLogger(__name__)
 
@@ -93,13 +91,13 @@ def process_single_url(url: str, client: OpenAI, output_dir: str) -> bool:
         logger.debug(f"Downloaded transcript ({len(transcript)} characters)")
 
         # Generate summary
-        logger.info("Generating summary with OpenAI...")
-        summary = summarize_with_openai(transcript, client)
+        logger.info(f"Generating summary with {config.provider.value} ({config.current_llm_config.model})...")
+        summary = summarize_with_llm(transcript, config)
         logger.debug("Generated summary")
 
         # Save summary
         logger.debug("Generating filename...")
-        file_path = save_summary(video_id, summary, output_dir, client)
+        file_path = save_summary(video_id, summary, output_dir, config)
         logger.info(f"Summary saved: {file_path}")
         return True
 
@@ -122,18 +120,30 @@ def main() -> None:
     setup_logging(args.verbose)
     logger = logging.getLogger(__name__)
 
-    # Check for OpenAI API key
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        logger.error("OPENAI_API_KEY environment variable not set.")
-        logger.error("Please set it with: export OPENAI_API_KEY='your-api-key-here'")
+    # Load configuration
+    try:
+        config = load_config()
+
+        # Check for API key
+        if not config.api_key:
+            provider_name = config.provider.value.upper()
+            logger.error(
+                f"{provider_name} API key is required. Set it via {provider_name}_API_KEY environment variable or in config.yaml"
+            )
+            sys.exit(1)
+
+        logger.debug(f"Using LLM provider: {config.provider.value} with model: {config.current_llm_config.model}")
+    except ValueError as e:
+        logger.error(f"Configuration error: {str(e)}")
         sys.exit(1)
 
-    # Initialize OpenAI client
-    client = OpenAI(api_key=api_key)
+    # Determine output directory - CLI argument takes precedence over config file
+    output_dir = args.output_dir if args.output_dir is not None else config.app.default_output_dir
+    logger.debug(f"Using output directory: {output_dir} {'(from CLI)' if args.output_dir else '(from config)'}")
 
     logger.info("🎬 YouTube Transcript Summarizer")
     logger.info("=" * 40)
+    logger.info(f"🤖 Using {config.provider.value} with model: {config.current_llm_config.model}")
 
     # Get URLs from input source
     try:
@@ -154,7 +164,7 @@ def main() -> None:
     for i, url in enumerate(urls, 1):
         logger.info(f"[{i}/{len(urls)}] Processing: {url}")
 
-        if process_single_url(url, client, args.output_dir):
+        if process_single_url(url, config, output_dir):
             processed += 1
         else:
             failed += 1
@@ -165,7 +175,7 @@ def main() -> None:
     logger.info(f"✓ Successfully processed: {processed}")
     if failed > 0:
         logger.warning(f"✗ Failed: {failed}")
-    logger.info(f"📁 Summaries saved in: {Path(args.output_dir).resolve()}/")
+    logger.info(f"📁 Summaries saved in: {Path(output_dir).resolve()}/")
 
 
 if __name__ == "__main__":
