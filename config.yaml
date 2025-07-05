@@ -6,11 +6,25 @@ provider: openai
 # API Keys (recommended to use environment variables for security)
 api_keys:
   openai: null  # Set via OPENAI_API_KEY environment variable
+  anthropic: null  # Set via ANTHROPIC_API_KEY environment variable
 
 # Provider configurations
 providers:
   openai:
     model: gpt-4.1
+    max_tokens: 1500
+    temperature: 0.7
+    title_max_tokens: 50
+    title_temperature: 0.3
+  anthropic:
+    model: claude-3-haiku
+    max_tokens: 1500
+    temperature: 0.7
+    title_max_tokens: 50
+    title_temperature: 0.3
+  ollama:
+    model: llama3.2:3b
+    base_url: http://localhost:11434
     max_tokens: 1500
     temperature: 0.7
     title_max_tokens: 50
