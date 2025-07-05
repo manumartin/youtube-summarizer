@@ -26,11 +26,7 @@ def _get_llm_config() -> Config:
     """Get LLM configuration from YAML config."""
     try:
         config = load_config()
-        if not config.api_key:
-            provider_name = config.provider.value.upper()
-            raise ValueError(
-                f"{provider_name} API key is required. Set it via {provider_name}_API_KEY environment variable or in config.yaml"
-            )
+
         return config
     except Exception as e:
         raise ValueError(f"Failed to get LLM configuration: {str(e)}")
@@ -62,7 +58,7 @@ def summarize_youtube_video(url: str, save_to_file: bool = False, output_dir: st
         # Generate summary
         summary = summarize_with_llm(transcript, config)
 
-        result_text = f"# YouTube Video Summary\n\n**Video ID:** {video_id}\n**URL:** {url}\n**LLM:** {config.provider.value}/{config.current_llm_config.model}\n\n## Summary\n\n{summary}"
+        result_text = f"# YouTube Video Summary\n\n**Video ID:** {video_id}\n**URL:** {url}\n**LLM:** {config.provider.value}/{config.model}\n\n## Summary\n\n{summary}"
 
         # Save to file if requested
         if save_to_file:

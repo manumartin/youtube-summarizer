@@ -90,7 +90,7 @@ def process_single_url(url: str, config: Config, output_dir: str) -> bool:
         logger.debug(f"Downloaded transcript ({len(transcript)} characters)")
 
         # Generate summary
-        logger.info(f"Generating summary with {config.provider.value} ({config.current_llm_config.model})...")
+        logger.info(f"Generating summary with {config.provider.value} ({config.model})...")
         summary = summarize_with_llm(transcript, config)
         logger.debug("Generated summary")
 
@@ -123,26 +123,18 @@ def main() -> None:
     try:
         config = load_config()
 
-        # Check for API key
-        if not config.api_key:
-            provider_name = config.provider.value.upper()
-            logger.error(
-                f"{provider_name} API key is required. Set it via {provider_name}_API_KEY environment variable or in config.yaml"
-            )
-            sys.exit(1)
-
-        logger.debug(f"Using LLM provider: {config.provider.value} with model: {config.current_llm_config.model}")
+        logger.debug(f"Using LLM provider: {config.provider.value} with model: {config.model}")
     except ValueError as e:
         logger.error(f"Configuration error: {str(e)}")
         sys.exit(1)
 
     # Determine output directory - CLI argument takes precedence over config file
-    output_dir = args.output_dir if args.output_dir is not None else config.app.default_output_dir
+    output_dir = args.output_dir if args.output_dir is not None else config.default_output_dir
     logger.debug(f"Using output directory: {output_dir} {'(from CLI)' if args.output_dir else '(from config)'}")
 
     logger.info("🎬 YouTube Transcript Summarizer")
     logger.info("=" * 40)
-    logger.info(f"🤖 Using {config.provider.value} with model: {config.current_llm_config.model}")
+    logger.info(f"🤖 Using {config.provider.value} with model: {config.model}")
 
     # Get URLs from input source
     try:

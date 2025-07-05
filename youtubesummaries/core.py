@@ -203,7 +203,7 @@ Focus on the main points and key takeaways. Use proper markdown formatting inclu
 {transcript}"""
 
         # Prepare litellm parameters
-        model_name = f"{config.provider.value}/{config.current_llm_config.model}"
+        model_name = f"{config.provider.value}/{config.model}"
 
         # Set up litellm configuration
         kwargs = {
@@ -215,15 +215,13 @@ Focus on the main points and key takeaways. Use proper markdown formatting inclu
                 },
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": config.current_llm_config.max_tokens,
-            "temperature": config.current_llm_config.temperature,
+            "max_tokens": config.max_tokens,
+            "temperature": config.temperature,
         }
 
         # Add provider-specific parameters
-        if config.api_key:
-            kwargs["api_key"] = config.api_key
-        if config.current_llm_config.base_url:
-            kwargs["base_url"] = config.current_llm_config.base_url
+        if config.effective_base_url:
+            kwargs["base_url"] = config.effective_base_url
 
         response = completion(**kwargs)
 
@@ -247,7 +245,7 @@ Summary: {summary}
 Return only the filename without any explanation."""
 
         # Prepare litellm parameters
-        model_name = f"{config.provider.value}/{config.current_llm_config.model}"
+        model_name = f"{config.provider.value}/{config.model}"
 
         kwargs = {
             "model": model_name,
@@ -258,15 +256,13 @@ Return only the filename without any explanation."""
                 },
                 {"role": "user", "content": prompt},
             ],
-            "max_tokens": config.current_llm_config.title_max_tokens,
-            "temperature": config.current_llm_config.title_temperature,
+            "max_tokens": config.title_max_tokens,
+            "temperature": config.title_temperature,
         }
 
         # Add provider-specific parameters
-        if config.api_key:
-            kwargs["api_key"] = config.api_key
-        if config.current_llm_config.base_url:
-            kwargs["base_url"] = config.current_llm_config.base_url
+        if config.effective_base_url:
+            kwargs["base_url"] = config.effective_base_url
 
         response = completion(**kwargs)
 
