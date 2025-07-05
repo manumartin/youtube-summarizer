@@ -36,7 +36,6 @@ Examples:
   cat urls.txt | %(prog)s
   %(prog)s --output-dir summaries https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
-Note: Configuration is read from config.yaml in the current directory
         """,
     )
 
