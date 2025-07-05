@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "youtubesummaries"
-version = "0.2.0"  # Updated from 0.1.0
+version = "0.3.0"  # Updated from 0.1.0
 description = "YouTube Transcript Summarizer CLI Tool"
 authors = ["Manuel Martin"]
 readme = "README.md"
