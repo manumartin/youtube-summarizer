@@ -9,14 +9,12 @@ import os
 
 from fastmcp import FastMCP
 
-from .config import Config, load_config
-from .core import (
-    get_video_id,
-    download_transcript,
-    summarize_with_llm,
-    save_summary,
-    YouTubeSummarizerError,
-)
+from .ConfigManager import ConfigManager
+
+from .YouTubeSummarizerError import YouTubeSummarizerError
+
+from .Config import Config
+from .YoutubeSummarizer import YouTubeSummarizer
 
 # Initialize the FastMCP server
 mcp = FastMCP("youtube-summarizer")
@@ -25,7 +23,8 @@ mcp = FastMCP("youtube-summarizer")
 def _get_llm_config() -> Config:
     """Get LLM configuration from YAML config."""
     try:
-        config = load_config()
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
 
         return config
     except Exception as e:
@@ -46,24 +45,25 @@ def summarize_youtube_video(url: str, save_to_file: bool = False, output_dir: st
     """
     try:
         config = _get_llm_config()
+        summarizer = YouTubeSummarizer(config)
 
         # Extract video ID
-        video_id = get_video_id(url)
+        video_id = YouTubeSummarizer.get_video_id(url)
         if not video_id:
             return f"Error: Invalid YouTube URL: {url}"
 
-        # Download transcript
-        transcript = download_transcript(video_id)
+        # Download transcript and metadata
+        transcript, metadata, timestamped_segments = YouTubeSummarizer.download_transcript(video_id)
 
-        # Generate summary
-        summary = summarize_with_llm(transcript, config)
+        # Generate summary with timestamps
+        summary = summarizer.summarize(transcript, timestamped_segments, video_id)
 
-        result_text = f"# YouTube Video Summary\n\n**Video ID:** {video_id}\n**URL:** {url}\n**LLM:** {config.provider.value}/{config.model}\n\n## Summary\n\n{summary}"
+        result_text = f"# YouTube Video Summary\n\n**Video ID:** {video_id}\n**URL:** {url}\n**Video Title:** {metadata.title}\n**Channel:** {metadata.channel}\n**LLM:** {config.provider.value}/{config.model}\n\n## Summary\n\n{summary}"
 
         # Save to file if requested
         if save_to_file:
             try:
-                file_path = save_summary(video_id, summary, output_dir, config)
+                file_path = summarizer.save_summary(video_id, summary, output_dir, metadata)
                 result_text += f"\n\n**File saved** to {file_path}"
             except YouTubeSummarizerError as e:
                 result_text += f"\n\n**Warning:** Failed to save file: {str(e)}"
