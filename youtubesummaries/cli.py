@@ -8,15 +8,12 @@ import sys
 from pathlib import Path
 from typing import List
 
-from .config import Config, load_config
-from .core import (
-    get_video_id,
-    load_urls_from_stdin,
-    download_transcript,
-    summarize_with_llm,
-    save_summary,
-    YouTubeSummarizerError,
-)
+from .ConfigManager import ConfigManager
+
+from .YouTubeSummarizerError import YouTubeSummarizerError
+
+from .Config import Config
+from .YoutubeSummarizer import YouTubeSummarizer
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -64,15 +61,15 @@ def get_urls_from_input(args: argparse.Namespace) -> List[str]:
             sys.exit(1)
 
         logger.debug("Reading URLs from stdin")
-        return load_urls_from_stdin()
+        return YouTubeSummarizer.load_urls_from_stdin()
 
 
-def process_single_url(url: str, config: Config, output_dir: str) -> bool:
+def process_single_url(url: str, summarizer: YouTubeSummarizer, output_dir: str) -> bool:
     """Process a single YouTube URL and return success status."""
     logger = logging.getLogger(__name__)
 
     # Extract video ID
-    video_id = get_video_id(url)
+    video_id = YouTubeSummarizer.get_video_id(url)
     if not video_id:
         logger.error(f"Invalid YouTube URL: {url}")
         return False
@@ -84,19 +81,21 @@ def process_single_url(url: str, config: Config, output_dir: str) -> bool:
         return True
 
     try:
-        # Download transcript
+        # Download transcript and metadata
         logger.info(f"Downloading transcript for video ID: {video_id}")
-        transcript = download_transcript(video_id)
+        transcript, metadata, timestamped_segments = YouTubeSummarizer.download_transcript(video_id)
         logger.debug(f"Downloaded transcript ({len(transcript)} characters)")
+        logger.debug(f"Video metadata: {metadata.title} by {metadata.channel}")
+        logger.debug(f"Extracted {len(timestamped_segments)} timestamped segments")
 
-        # Generate summary
-        logger.info(f"Generating summary with {config.provider.value} ({config.model})...")
-        summary = summarize_with_llm(transcript, config)
+        # Generate summary with timestamps
+        logger.info(f"Generating summary with {summarizer.config.provider.value} ({summarizer.config.model})...")
+        summary = summarizer.summarize(transcript, timestamped_segments, video_id)
         logger.debug("Generated summary")
 
-        # Save summary
-        logger.debug("Generating filename...")
-        file_path = save_summary(video_id, summary, output_dir, config)
+        # Save summary with metadata
+        logger.debug("Generating filename from metadata...")
+        file_path = summarizer.save_summary(video_id, summary, output_dir, metadata)
         logger.info(f"Summary saved: {file_path}")
         return True
 
@@ -121,12 +120,16 @@ def main() -> None:
 
     # Load configuration
     try:
-        config = load_config()
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
 
         logger.debug(f"Using LLM provider: {config.provider.value} with model: {config.model}")
     except ValueError as e:
         logger.error(f"Configuration error: {str(e)}")
         sys.exit(1)
+
+    # Create summarizer instance
+    summarizer = YouTubeSummarizer(config)
 
     # Determine output directory - CLI argument takes precedence over config file
     output_dir = args.output_dir if args.output_dir is not None else config.default_output_dir
@@ -155,7 +158,7 @@ def main() -> None:
     for i, url in enumerate(urls, 1):
         logger.info(f"[{i}/{len(urls)}] Processing: {url}")
 
-        if process_single_url(url, config, output_dir):
+        if process_single_url(url, summarizer, output_dir):
             processed += 1
         else:
             failed += 1
