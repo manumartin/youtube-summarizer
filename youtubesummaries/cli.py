@@ -8,12 +8,25 @@ import sys
 from pathlib import Path
 from typing import List
 
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version
+
 from .ConfigManager import ConfigManager
 
 from .YouTubeSummarizerError import YouTubeSummarizerError
 
 from .Config import Config
 from .YoutubeSummarizer import YouTubeSummarizer
+
+
+def get_version() -> str:
+    """Get the package version."""
+    try:
+        return version("youtubesummaries")
+    except Exception:
+        return "unknown"
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -40,7 +53,9 @@ Examples:
 
     parser.add_argument("--output-dir", "-o", help="Directory to save summaries (overrides config file setting)")
 
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+
+    parser.add_argument("--version", "-v", action="version", version=f"%(prog)s {get_version()}")
 
     return parser.parse_args()
 
